@@ -43,9 +43,10 @@ async function fetchReddit(url) {
  * @returns {Promise<Array<Object>>} Array of normalized feedback objects.
  */
 export async function collectRedditDiscussions(options = {}) {
-  const SUBREDDITS = options.subreddits || ['bangalore', 'india', 'IndianFood', 'Indiasocial', 'mumbai', 'delhi', 'hyderabad'];
-  const QUERIES = options.queries || ['swiggy instamart', 'instamart grocery', 'instamart delivery', 'quick commerce india'];
-  const limit = options.limit || 50;
+  // Use focused subreddits and queries to avoid dozens of redundant HTTP requests
+  const SUBREDDITS = options.subreddits || ['bangalore', 'india', 'Indiasocial'];
+  const QUERIES = options.queries || ['swiggy instamart', 'instamart delivery'];
+  const limit = options.limit || 25;
 
   const results = [];
   const seenIds = new Set();
@@ -56,7 +57,7 @@ export async function collectRedditDiscussions(options = {}) {
         console.log(`Searching r/${subreddit} for "${query}"...`);
         const searchUrl = `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(query)}&sort=relevance&limit=${limit}&restrict_sr=on`;
         const searchData = await fetchReddit(searchUrl);
-        await sleep(1500); // 1.5 seconds delay to avoid rate limits
+        await sleep(500); // 500ms delay to keep collection fast
 
         const posts = searchData?.data?.children || [];
 
@@ -93,13 +94,13 @@ export async function collectRedditDiscussions(options = {}) {
             });
           }
 
-          // Fetch top-level comments if there are any
-          if (post.num_comments > 0) {
+          // Fetch top-level comments for active discussions (min 3 comments)
+          if (post.num_comments >= 3) {
             try {
-              // Constructing comment API URL using the permalink which is safer than post.url (which might be external)
+              // Constructing comment API URL using the permalink
               const commentsUrl = `https://www.reddit.com${post.permalink}.json`;
               const commentsData = await fetchReddit(commentsUrl);
-              await sleep(1500); // Delay between comment fetches
+              await sleep(500); // 500ms delay between comment fetches
 
               // Reddit comments JSON returns an array where index 1 contains the comments
               const comments = commentsData[1]?.data?.children || [];

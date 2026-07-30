@@ -38,7 +38,7 @@ export async function clusterThemes(classifiedFeedback) {
  * @param {number} batchSize - Number of items per batch (default 25)
  * @returns {Promise<{classified: Array<Object>, themes: Array<Object>}>}
  */
-export async function processFeedbackInBatches(feedbackArray, batchSize = 25) {
+export async function processFeedbackInBatches(feedbackArray, batchSize = 40) {
   const classified = [];
   const totalBatches = Math.ceil(feedbackArray.length / batchSize);
   

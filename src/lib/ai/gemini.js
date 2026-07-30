@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 let genAI = null;
 let lastCallTime = 0;
-const MIN_GAP_MS = 4500; // 4.5 seconds to stay under 15 RPM
+const MIN_GAP_MS = 2000; // 2.0 seconds rate limit gap
 
 /**
  * Sleeps for a specified number of milliseconds
