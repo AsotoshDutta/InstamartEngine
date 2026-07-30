@@ -20,11 +20,17 @@ export async function GET(request) {
   let pipelineRun = null;
 
   try {
-    // 1. Verify CRON_SECRET from authorization header (Vercel sends this automatically)
+    // 1. Verify CRON_SECRET from authorization header or query param
     const authHeader = request.headers.get('authorization');
     const cronSecret = authHeader?.replace('Bearer ', '');
+    const url = new URL(request.url);
+    const cronSecretParam = url.searchParams.get('cron_secret');
+    const cronSecretEnv = process.env.CRON_SECRET;
 
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+    const isAuthValid = cronSecret === cronSecretEnv;
+    const isParamValid = cronSecretParam === cronSecretEnv;
+
+    if (cronSecretEnv && !isAuthValid && !isParamValid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
