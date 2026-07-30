@@ -7,17 +7,19 @@ import { runThemeExtraction } from '@/lib/analysis/themeEngine';
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization');
     const url = new URL(request.url);
-    const cronSecretParam = url.searchParams.get('cron_secret');
-    const cronSecretEnv = process.env.CRON_SECRET;
 
     // Verify CRON_SECRET from authorization header or query param
-    const isAuthHeaderValid = authHeader === `Bearer ${cronSecretEnv}`;
-    const isQueryParamValid = cronSecretParam === cronSecretEnv;
+    const cronSecretEnv = process.env.CRON_SECRET ? process.env.CRON_SECRET.trim() : null;
+    if (cronSecretEnv) {
+      const authHeader = request.headers.get('authorization');
+      const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+      const cronSecretParam = url.searchParams.get('cron_secret')?.trim() || '';
 
-    if (!cronSecretEnv || (!isAuthHeaderValid && !isQueryParamValid)) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      if (bearerToken !== cronSecretEnv && cronSecretParam !== cronSecretEnv) {
+        console.warn(`[Auth Failed] Expected "${cronSecretEnv}", received Bearer="${bearerToken}" Query="${cronSecretParam}"`);
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Call runThemeExtraction

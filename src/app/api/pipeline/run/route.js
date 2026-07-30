@@ -21,17 +21,17 @@ export async function GET(request) {
 
   try {
     // 1. Verify CRON_SECRET from authorization header or query param
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = authHeader?.replace('Bearer ', '');
-    const url = new URL(request.url);
-    const cronSecretParam = url.searchParams.get('cron_secret');
-    const cronSecretEnv = process.env.CRON_SECRET;
+    const cronSecretEnv = process.env.CRON_SECRET ? process.env.CRON_SECRET.trim() : null;
+    if (cronSecretEnv) {
+      const authHeader = request.headers.get('authorization');
+      const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+      const url = new URL(request.url);
+      const queryToken = url.searchParams.get('cron_secret')?.trim() || '';
 
-    const isAuthValid = cronSecret === cronSecretEnv;
-    const isParamValid = cronSecretParam === cronSecretEnv;
-
-    if (cronSecretEnv && !isAuthValid && !isParamValid) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (bearerToken !== cronSecretEnv && queryToken !== cronSecretEnv) {
+        console.warn(`[Auth Failed] Expected "${cronSecretEnv}", received Bearer="${bearerToken}" Query="${queryToken}"`);
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Log the pipeline run start

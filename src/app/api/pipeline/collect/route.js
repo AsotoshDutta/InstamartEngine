@@ -15,12 +15,17 @@ import { insertFeedback } from '@/lib/db/supabase';
 export async function POST(request) {
   try {
     // 1. Verify CRON_SECRET for security
-    const authHeader = request.headers.get('authorization');
-    const { searchParams } = new URL(request.url);
-    const cronSecret = searchParams.get('cron_secret') || authHeader?.replace('Bearer ', '');
+    const cronSecretEnv = process.env.CRON_SECRET ? process.env.CRON_SECRET.trim() : null;
+    if (cronSecretEnv) {
+      const authHeader = request.headers.get('authorization');
+      const bearerToken = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '';
+      const url = new URL(request.url);
+      const queryToken = url.searchParams.get('cron_secret')?.trim() || '';
 
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (bearerToken !== cronSecretEnv && queryToken !== cronSecretEnv) {
+        console.warn(`[Auth Failed] Expected "${cronSecretEnv}", received Bearer="${bearerToken}" Query="${queryToken}"`);
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // 2. Call all collectors in parallel
