@@ -18,6 +18,17 @@ export function getGroqClient() {
   return groqClient;
 }
 
+function unwrapJSONArray(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== 'object') return [];
+  for (const key of Object.keys(parsed)) {
+    if (Array.isArray(parsed[key])) {
+      return parsed[key];
+    }
+  }
+  return [];
+}
+
 /**
  * Generates JSON response from Groq using Llama-3.3-70b-versatile
  * @param {string} prompt - User prompt
@@ -46,8 +57,7 @@ export async function generateJSONWithGroq(prompt, systemInstruction, model = 'l
     
     try {
       const parsed = JSON.parse(content);
-      // If wrapper object has an array inside (e.g. { data: [...] } or { items: [...] }), unwrap if needed
-      return parsed.items || parsed.data || parsed.themes || parsed.insights || parsed.classified || parsed;
+      return unwrapJSONArray(parsed);
     } catch (parseError) {
       console.error('[Groq AI] JSON parse error:', parseError, 'Content:', content);
       throw new Error('Invalid JSON response from Groq model');
