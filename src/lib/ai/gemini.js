@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateJSONWithGroq } from './groq.js';
 
 let genAI = null;
 let lastCallTime = 0;
@@ -80,14 +81,26 @@ async function withModelFallback(apiCallFactory) {
   throw lastErr || new Error('All Gemini model fallbacks failed.');
 }
 
+
+
 /**
- * Generates JSON response from Gemini
+ * Generates JSON response using Groq if GROQ_API_KEY is available, or Gemini with fallback
  * @param {string} prompt - The user prompt
  * @param {string} [systemInstruction] - Optional system instructions
  * @returns {Promise<any>} - Parsed JSON response
  */
 export async function generateJSON(prompt, systemInstruction) {
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.log('[AI Router] Using Groq Llama-3.3-70B...');
+      return await generateJSONWithGroq(prompt, systemInstruction);
+    } catch (groqError) {
+      console.warn('[AI Router] Groq failed, falling back to Gemini:', groqError.message);
+    }
+  }
+
   return withModelFallback(async (modelName) => {
+    console.log(`[AI Router] Using Gemini model (${modelName})...`);
     const model = getModel(systemInstruction, modelName);
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
