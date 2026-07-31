@@ -6,6 +6,18 @@ export default function InsightsDashboard() {
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterImpact, setFilterImpact] = useState('all');
+  const [filterQuestion, setFilterQuestion] = useState('all');
+
+  const QUESTION_MAP = {
+    'Q1': 'Q1: Why do users repeat-buy same categories?',
+    'Q2': 'Q2: What prevents exploring new categories?',
+    'Q3': 'Q3: How do users discover products today?',
+    'Q4': 'Q4: What role do habits play in shopping?',
+    'Q5': 'Q5: What info do users need before trial?',
+    'Q6': 'Q6: What frustrations emerge repeatedly?',
+    'Q7': 'Q7: Which segments experiment more?',
+    'Q8': 'Q8: What unmet needs emerge consistently?'
+  };
 
   useEffect(() => {
     const fetchInsights = async () => {
@@ -25,9 +37,10 @@ export default function InsightsDashboard() {
     fetchInsights();
   }, []);
 
-  // Sort by confidence score (descending)
+  // Sort by confidence score (descending) & filter by impact & strategic question
   const sortedAndFiltered = insights
     .filter(insight => filterImpact === 'all' || insight.impact?.toLowerCase() === filterImpact)
+    .filter(insight => filterQuestion === 'all' || insight.strategic_question?.toUpperCase() === filterQuestion.toUpperCase())
     .sort((a, b) => (b.confidence_score || 0) - (a.confidence_score || 0));
 
   const styles = {
@@ -145,16 +158,34 @@ export default function InsightsDashboard() {
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>💡 Strategic Insights</h1>
-        <select 
-          value={filterImpact} 
-          onChange={(e) => setFilterImpact(e.target.value)}
-          style={styles.select}
-        >
-          <option value="all">All Impacts</option>
-          <option value="high">High Impact</option>
-          <option value="medium">Medium Impact</option>
-          <option value="low">Low Impact</option>
-        </select>
+        <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap'}}>
+          <select 
+            value={filterQuestion} 
+            onChange={(e) => setFilterQuestion(e.target.value)}
+            style={styles.select}
+          >
+            <option value="all">🎯 All 8 Discovery Questions</option>
+            <option value="Q1">Q1: Why repeat-buy same categories?</option>
+            <option value="Q2">Q2: What prevents exploring new categories?</option>
+            <option value="Q3">Q3: How do users discover products?</option>
+            <option value="Q4">Q4: What role do habits play in shopping?</option>
+            <option value="Q5">Q5: What info do users need before trial?</option>
+            <option value="Q6">Q6: What frustrations emerge repeatedly?</option>
+            <option value="Q7">Q7: Which segments experiment more?</option>
+            <option value="Q8">Q8: What unmet needs emerge consistently?</option>
+          </select>
+
+          <select 
+            value={filterImpact} 
+            onChange={(e) => setFilterImpact(e.target.value)}
+            style={styles.select}
+          >
+            <option value="all">All Impacts</option>
+            <option value="high">High Impact</option>
+            <option value="medium">Medium Impact</option>
+            <option value="low">Low Impact</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -162,13 +193,18 @@ export default function InsightsDashboard() {
       ) : (
         <div style={styles.grid}>
           {sortedAndFiltered.length === 0 ? (
-            <div style={{color: '#888'}}>No insights available.</div>
+            <div style={{color: '#888'}}>No insights available for selected question filter.</div>
           ) : (
             sortedAndFiltered.map(insight => (
               <div key={insight.id} style={styles.card}>
                 <div>
                   <h3 style={styles.insightTitle}>{insight.title}</h3>
-                  <div style={{marginTop: '0.5rem', display: 'flex', gap: '0.5rem'}}>
+                  <div style={{marginTop: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap'}}>
+                    {insight.strategic_question && (
+                      <span style={{...styles.badge, background: 'rgba(255,107,53,0.2)', color: '#ff6b35', border: '1px solid rgba(255,107,53,0.4)'}}>
+                        🎯 {insight.strategic_question}: {QUESTION_MAP[insight.strategic_question?.toUpperCase()] || insight.strategic_question}
+                      </span>
+                    )}
                     <span style={{...styles.badge, ...(insight.impact?.toLowerCase() === 'high' ? styles.badgeHigh : {})}}>
                       Impact: {insight.impact}
                     </span>

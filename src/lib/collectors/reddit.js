@@ -45,13 +45,44 @@ async function fetchReddit(url) {
  * @returns {Promise<Array<Object>>} Array of normalized feedback objects.
  */
 export async function collectRedditDiscussions(options = {}) {
-  // Use focused subreddits and queries to avoid dozens of redundant HTTP requests
   const SUBREDDITS = options.subreddits || ['bangalore', 'india', 'Indiasocial'];
-  const QUERIES = options.queries || ['swiggy instamart', 'instamart delivery'];
+  const QUERIES = options.queries || ['swiggy instamart', 'instamart delivery', 'instamart category', 'instamart items missing'];
   const limit = options.limit || 25;
 
   const results = [];
   const seenIds = new Set();
+
+  // Try global Reddit search first for highest yield
+  try {
+    const globalUrl = `https://www.reddit.com/search.json?q=swiggy+instamart&sort=relevance&limit=30`;
+    console.log(`Searching Reddit globally for "swiggy instamart"...`);
+    const globalData = await fetchReddit(globalUrl);
+    const globalPosts = globalData?.data?.children || [];
+
+    for (const postWrapper of globalPosts) {
+      const post = postWrapper.data;
+      if (post && post.id && !seenIds.has(post.id) && post.title && post.title !== '[deleted]') {
+        seenIds.add(post.id);
+        results.push({
+          source: 'reddit',
+          text: `${post.title}\n\n${post.selftext || ''}`.trim(),
+          rating: null,
+          date: new Date(post.created_utc * 1000).toISOString(),
+          author_hash: hashAuthor(post.author),
+          metadata: {
+            subreddit: post.subreddit,
+            post_id: post.id,
+            upvotes: post.ups,
+            type: 'post',
+            url: post.url,
+            num_comments: post.num_comments
+          }
+        });
+      }
+    }
+  } catch (globalErr) {
+    console.warn(`Global Reddit search warning: ${globalErr.message}`);
+  }
 
   for (const subreddit of SUBREDDITS) {
     for (const query of QUERIES) {

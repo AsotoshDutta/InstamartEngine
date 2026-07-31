@@ -67,27 +67,27 @@ export async function runThemeExtraction(options = {}) {
 
     // ── Step 4: Update classified feedback in Supabase ──────────────
     if (classified.length > 0) {
-      console.log(`[ThemeEngine] Step 4: Updating ${classified.length} classified feedback rows...`);
+      console.log(`[ThemeEngine] Step 4: Updating ${classified.length} classified feedback rows in parallel...`);
 
-      for (const item of classified) {
-        try {
-          const { error: updateError } = await supabase
-            .from('feedback')
-            .update({
-              sentiment: item.sentiment || null,
-              category: item.category || null,
-              theme_tags: item.theme_tags || null,
-              relevance: item.relevance || null,
-              processed: true
-            })
-            .eq('id', item.id);
-
-          if (updateError) {
-            console.error(`[ThemeEngine] Update error for feedback ${item.id}:`, updateError.message);
+      const UPDATE_CHUNK = 25;
+      for (let i = 0; i < classified.length; i += UPDATE_CHUNK) {
+        const chunk = classified.slice(i, i + UPDATE_CHUNK);
+        await Promise.all(chunk.map(async item => {
+          try {
+            await supabase
+              .from('feedback')
+              .update({
+                sentiment: item.sentiment || null,
+                category: item.category || null,
+                theme_tags: item.theme_tags || null,
+                relevance: item.relevance || null,
+                processed: true
+              })
+              .eq('id', item.id);
+          } catch (err) {
+            console.error(`[ThemeEngine] Update error for ${item.id}:`, err.message);
           }
-        } catch (updateErr) {
-          console.error(`[ThemeEngine] Update exception for feedback ${item.id}:`, updateErr.message);
-        }
+        }));
       }
     }
 
