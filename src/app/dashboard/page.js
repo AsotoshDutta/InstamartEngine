@@ -29,17 +29,17 @@ export default function DashboardOverview() {
         
         if (statsRes.ok) {
           const data = await statsRes.json();
-          setStats(data.stats);
+          setStats(data.stats || data);
         }
 
         if (themesRes.ok) {
           const data = await themesRes.json();
-          setThemes(data.themes || []);
+          setThemes(data.data || data.themes || (Array.isArray(data) ? data : []));
         }
 
         if (insightsRes.ok) {
           const data = await insightsRes.json();
-          setInsights(data.insights || []);
+          setInsights(data.data || data.insights || (Array.isArray(data) ? data : []));
         }
       } catch (err) {
         setError(err.message);

@@ -14,7 +14,7 @@ export default function InsightsDashboard() {
         const res = await fetch('/api/insights');
         if (res.ok) {
           const data = await res.json();
-          setInsights(data.insights || []);
+          setInsights(data.data || data.insights || (Array.isArray(data) ? data : []));
         }
       } catch (err) {
         console.error("Error fetching insights:", err);

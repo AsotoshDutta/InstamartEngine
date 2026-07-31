@@ -12,7 +12,7 @@ export default function SourceAnalytics() {
         const res = await fetch('/api/feedback/stats');
         if (res.ok) {
           const data = await res.json();
-          setStats(data.stats);
+          setStats(data.stats || data);
         }
       } catch (err) {
         console.error("Error fetching stats:", err);

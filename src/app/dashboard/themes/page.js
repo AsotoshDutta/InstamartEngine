@@ -16,7 +16,7 @@ export default function ThemeExplorer() {
         const res = await fetch('/api/themes');
         if (res.ok) {
           const data = await res.json();
-          setThemes(data.themes || []);
+          setThemes(data.data || data.themes || (Array.isArray(data) ? data : []));
         }
       } catch (error) {
         console.error("Error fetching themes:", error);
