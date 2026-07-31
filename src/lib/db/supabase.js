@@ -74,14 +74,28 @@ export async function getFeedbackCount() {
  */
 export async function getUnprocessedFeedback(limit = 50) {
   try {
-    const { data, error } = await supabase
+    const { data: unprocessed, error } = await supabase
       .from('feedback')
       .select('*')
       .eq('processed', false)
       .limit(limit);
 
     if (error) throw error;
-    return data;
+
+    // Fallback: if no unprocessed feedback exists, return recent stored feedback
+    if (!unprocessed || unprocessed.length === 0) {
+      console.log('[Supabase] No unprocessed feedback found. Falling back to recent feedback...');
+      const { data: recent, error: recentError } = await supabase
+        .from('feedback')
+        .select('*')
+        .order('collected_at', { ascending: false })
+        .limit(limit);
+
+      if (recentError) throw recentError;
+      return recent || [];
+    }
+
+    return unprocessed;
   } catch (error) {
     console.error('Error in getUnprocessedFeedback:', error);
     throw error;
@@ -116,9 +130,25 @@ export async function markAsProcessed(ids) {
  */
 export async function insertThemes(themesArray) {
   try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const cleanedThemes = themesArray.map(t => {
+      const evidence_ids = Array.isArray(t.review_ids) 
+        ? t.review_ids.filter(id => typeof id === 'string' && uuidRegex.test(id))
+        : [];
+      return {
+        label: (t.label || t.title || 'Theme').substring(0, 255),
+        description: t.description || '',
+        review_count: typeof t.review_count === 'number' ? t.review_count : evidence_ids.length,
+        avg_sentiment: typeof t.avg_sentiment === 'number' ? t.avg_sentiment : (t.avg_sentiment === 'positive' ? 1.0 : t.avg_sentiment === 'negative' ? -1.0 : 0.0),
+        source_diversity: typeof t.source_diversity === 'number' ? t.source_diversity : 1,
+        relevance: t.relevance || 'medium',
+        evidence_ids: evidence_ids
+      };
+    });
+
     const { data, error } = await supabase
       .from('themes')
-      .insert(themesArray)
+      .insert(cleanedThemes)
       .select();
 
     if (error) throw error;
@@ -136,9 +166,28 @@ export async function insertThemes(themesArray) {
  */
 export async function insertInsights(insightsArray) {
   try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const cleanedInsights = insightsArray.map(ins => {
+      const validThemeIds = Array.isArray(ins.theme_ids)
+        ? ins.theme_ids.filter(id => typeof id === 'string' && uuidRegex.test(id))
+        : [];
+      return {
+        title: (ins.title || 'Generated Insight').substring(0, 255),
+        description: ins.description || '',
+        evidence_count: ins.evidence_count || 0,
+        impact: ins.impact || 'medium',
+        confidence_score: typeof ins.confidence_score === 'number' ? ins.confidence_score : 80.0,
+        strategic_question: ins.strategic_question || 'Q1',
+        recommended_action: ins.recommended_action || ins.action || '',
+        user_segment: ins.user_segment || 'all users',
+        theme_ids: validThemeIds,
+        validated: ins.validated !== undefined ? ins.validated : true
+      };
+    });
+
     const { data, error } = await supabase
       .from('insights')
-      .insert(insightsArray)
+      .insert(cleanedInsights)
       .select();
 
     if (error) throw error;

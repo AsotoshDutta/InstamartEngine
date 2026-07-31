@@ -29,7 +29,15 @@ async function enforceRateLimit() {
  * @param {string} [systemInstruction] - Optional system instructions
  * @returns {import('@google/generative-ai').GenerativeModel}
  */
-export function getModel(systemInstruction = undefined) {
+const FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.0-flash-lite'];
+
+/**
+ * Initializes and returns the Gemini model instance (lazy load)
+ * @param {string} [systemInstruction] - Optional system instructions
+ * @param {string} [modelName='gemini-3.6-flash'] - Model name to use
+ * @returns {import('@google/generative-ai').GenerativeModel}
+ */
+export function getModel(systemInstruction = undefined, modelName = 'gemini-3.6-flash') {
   if (!genAI) {
     if (!process.env.GEMINI_API_KEY) {
       console.warn('GEMINI_API_KEY is not set. Gemini API calls will fail.');
@@ -38,7 +46,7 @@ export function getModel(systemInstruction = undefined) {
   }
   
   const modelConfig = {
-    model: 'gemini-2.0-flash',
+    model: modelName,
   };
   
   if (systemInstruction) {
@@ -49,26 +57,27 @@ export function getModel(systemInstruction = undefined) {
 }
 
 /**
- * Calls Gemini API with retry logic and exponential backoff
- * @param {Function} apiCall - Function that makes the actual API call
- * @param {number} maxRetries - Maximum number of retries
+ * Calls Gemini API with model fallbacks and exponential backoff retry logic.
+ * @param {Function} apiCallFactory - Function receiving (modelName) and returning API call Promise
  * @returns {Promise<any>}
  */
-async function withRetry(apiCall, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      await enforceRateLimit();
-      return await apiCall();
-    } catch (error) {
-      console.error(`Gemini API call failed (attempt ${attempt}/${maxRetries}):`, error.message);
-      if (attempt === maxRetries) {
-        throw error;
+async function withModelFallback(apiCallFactory) {
+  let lastErr = null;
+
+  for (const modelName of FALLBACK_MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await enforceRateLimit();
+        return await apiCallFactory(modelName);
+      } catch (error) {
+        lastErr = error;
+        console.warn(`[Gemini API] Call with ${modelName} failed (attempt ${attempt}/2): ${error.message}`);
+        await sleep(1500 * attempt);
       }
-      // Exponential backoff: 2s, 4s, etc.
-      const backoffMs = Math.pow(2, attempt) * 1000;
-      await sleep(backoffMs);
     }
   }
+
+  throw lastErr || new Error('All Gemini model fallbacks failed.');
 }
 
 /**
@@ -78,8 +87,8 @@ async function withRetry(apiCall, maxRetries = 3) {
  * @returns {Promise<any>} - Parsed JSON response
  */
 export async function generateJSON(prompt, systemInstruction) {
-  return withRetry(async () => {
-    const model = getModel(systemInstruction);
+  return withModelFallback(async (modelName) => {
+    const model = getModel(systemInstruction, modelName);
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: {
@@ -103,8 +112,8 @@ export async function generateJSON(prompt, systemInstruction) {
  * @returns {Promise<string>} - Text response
  */
 export async function generateText(prompt, systemInstruction) {
-  return withRetry(async () => {
-    const model = getModel(systemInstruction);
+  return withModelFallback(async (modelName) => {
+    const model = getModel(systemInstruction, modelName);
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });

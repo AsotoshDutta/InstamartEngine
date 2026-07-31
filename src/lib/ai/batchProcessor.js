@@ -1,6 +1,6 @@
-import { generateJSON } from './gemini';
-import { CLASSIFY_SYSTEM_PROMPT, buildClassifyUserPrompt } from './prompts/classify';
-import { CLUSTER_SYSTEM_PROMPT, buildClusterUserPrompt } from './prompts/cluster';
+import { generateJSON } from './gemini.js';
+import { CLASSIFY_SYSTEM_PROMPT, buildClassifyUserPrompt } from './prompts/classify.js';
+import { CLUSTER_SYSTEM_PROMPT, buildClusterUserPrompt } from './prompts/cluster.js';
 
 /**
  * Classifies a batch of feedback objects

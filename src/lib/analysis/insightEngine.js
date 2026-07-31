@@ -1,6 +1,6 @@
-import { generateJSON } from '@/lib/ai/gemini';
-import { INSIGHTS_SYSTEM_PROMPT, buildInsightsUserPrompt } from '@/lib/ai/prompts/insights';
-import { insertInsights } from '@/lib/db/supabase';
+import { generateJSON } from '../ai/gemini.js';
+import { INSIGHTS_SYSTEM_PROMPT, buildInsightsUserPrompt } from '../ai/prompts/insights.js';
+import { insertInsights } from '../db/supabase.js';
 
 /**
  * Generates insights from a list of themes and stores them in the database.

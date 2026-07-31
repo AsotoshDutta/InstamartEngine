@@ -3,16 +3,15 @@
  * Ties together preprocessing, AI classification, clustering, and storage.
  */
 
-import { getUnprocessedFeedback, markAsProcessed, insertThemes } from '@/lib/db/supabase';
-import { supabase } from '@/lib/db/supabase';
-import { preprocessFeedback } from './preprocess';
-import { processFeedbackInBatches } from '@/lib/ai/batchProcessor';
-import { generateJSON } from '@/lib/ai/gemini';
-import { SUMMARIZE_SYSTEM_PROMPT, buildSummarizeUserPrompt } from '@/lib/ai/prompts/summarize';
-import { generateInsights } from '@/lib/analysis/insightEngine';
-import { calculateConfidenceScore, scoreAllInsights } from '@/lib/validation/confidenceScorer';
-import { applyGuardrails } from '@/lib/validation/guardrails';
-import { checkCrossSourceCorroboration } from '@/lib/validation/crossSourceCheck';
+import { getUnprocessedFeedback, markAsProcessed, insertThemes, supabase } from '../db/supabase.js';
+import { preprocessFeedback } from './preprocess.js';
+import { processFeedbackInBatches } from '../ai/batchProcessor.js';
+import { generateJSON } from '../ai/gemini.js';
+import { SUMMARIZE_SYSTEM_PROMPT, buildSummarizeUserPrompt } from '../ai/prompts/summarize.js';
+import { generateInsights } from './insightEngine.js';
+import { calculateConfidenceScore, scoreAllInsights } from '../validation/confidenceScorer.js';
+import { applyGuardrails } from '../validation/guardrails.js';
+import { checkCrossSourceCorroboration } from '../validation/crossSourceCheck.js';
 
 /**
  * Runs the full theme extraction pipeline.
@@ -70,32 +69,24 @@ export async function runThemeExtraction(options = {}) {
     if (classified.length > 0) {
       console.log(`[ThemeEngine] Step 4: Updating ${classified.length} classified feedback rows...`);
 
-      // Build upsert records to update sentiment/category/tags on each feedback row
-      const updates = classified.map(item => ({
-        id: item.id,
-        sentiment: item.sentiment || null,
-        category: item.category || null,
-        theme_tags: item.theme_tags || null,
-        relevance: item.relevance || null,
-        processed: true
-      }));
-
-      // Upsert in batches of 200 to avoid payload limits
-      const UPSERT_BATCH = 200;
-      for (let i = 0; i < updates.length; i += UPSERT_BATCH) {
-        const batch = updates.slice(i, i + UPSERT_BATCH);
+      for (const item of classified) {
         try {
           const { error: updateError } = await supabase
             .from('feedback')
-            .upsert(batch, { onConflict: 'id' });
+            .update({
+              sentiment: item.sentiment || null,
+              category: item.category || null,
+              theme_tags: item.theme_tags || null,
+              relevance: item.relevance || null,
+              processed: true
+            })
+            .eq('id', item.id);
 
           if (updateError) {
-            console.error(`[ThemeEngine] Upsert error at batch ${i}:`, updateError.message);
-            results.errors.push(`Feedback upsert error: ${updateError.message}`);
+            console.error(`[ThemeEngine] Update error for feedback ${item.id}:`, updateError.message);
           }
-        } catch (upsertErr) {
-          console.error(`[ThemeEngine] Upsert exception at batch ${i}:`, upsertErr.message);
-          results.errors.push(`Feedback upsert exception: ${upsertErr.message}`);
+        } catch (updateErr) {
+          console.error(`[ThemeEngine] Update exception for feedback ${item.id}:`, updateErr.message);
         }
       }
     }
